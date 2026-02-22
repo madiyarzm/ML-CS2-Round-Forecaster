@@ -6,6 +6,8 @@
 
 A Machine Learning project that analyzes personal Counter-Strike 2 match history to predict round outcomes based on economic state and opening engagement data.
 
+🔗 Live Report: https://madiyarzm.github.io/ML-CS2-Round-Forecaster/cs156_report.html
+
 ---
 
 ## 📌 Project Overview
