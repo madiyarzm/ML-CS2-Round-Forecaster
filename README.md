@@ -1,58 +1,48 @@
-# SpotiVibes
+# CS2-Economic-Predictor: Modeling Tactical Asymmetry
 
-ML pipeline to analyze your Spotify library with **K-Means clustering** on audio features — discover "hidden vibes" beyond genre.
+![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+![Scikit-Learn](https://img.shields.io/badge/machine--learning-Scikit--Learn-orange.svg)
+![Selenium](https://img.shields.io/badge/web--scraping-Selenium-green.svg)
 
-## How to run
+A Machine Learning project that analyzes personal Counter-Strike 2 match history to predict round outcomes based on economic state and opening engagement data.
 
-### 1. Install dependencies
+---
 
-```bash
-cd SpotiVibes
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
+## 📌 Project Overview
+In competitive *Counter-Strike 2*, resources are everything. This project investigates the hypothesis: **Is the economic asymmetry at the start of a round the strongest predictor of its outcome?**
 
-### 2. Set credentials (env vars)
+By decomposing matches into discrete rounds, I extracted telemetry from **424 rounds** of play to build a Logistic Regression model that balances "Value Gaps" (equipment cost) against "First Kills" (tactical momentum).
 
-Create a `.env` file in the project root (it is gitignored):
+## 🛠️ Technical Stack
+* **Data Collection:** Python + Selenium (Automated scraping of player telemetry from `csstats.gg`).
+* **Data Processing:** Pandas & NumPy (Filtering, normalization, and feature engineering).
+* **Machine Learning:** Scikit-Learn (Logistic Regression with 5-Fold Cross-Validation).
+* **Visualization:** Matplotlib & Seaborn (Heatmaps, Boxplots, Confusion Matrices, and ROC Curves).
 
-```
-SPOTIPY_CLIENT_ID=your_client_id
-SPOTIPY_CLIENT_SECRET=your_client_secret
-```
+## 📊 Key Findings
+* **Model Accuracy:** **68.24%** on unseen test data—a high predictive rate for a chaotic tactical environment.
+* **The "First Kill" Multiplier:** Securing the first kill ($0.38$ correlation) proved significantly more influential than having a raw equipment lead ($0.16$ correlation).
+* **Stable Logic:** A 5-fold cross-validation standard deviation of only **5.75%** confirms that the model's logic is consistent across different maps and match contexts.
 
-Get them from [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) → your app → Settings. If you get **403 Forbidden** on audio-features: in Development Mode only listed users can use the app — add your Spotify account in **Settings → User Management**.
 
-**Redirect URI (must match exactly):** In the app’s **Redirect URIs** click **Add** and paste **exactly** (no space, no trailing slash, `http` not `https`):
 
-```
-http://127.0.0.1:8080/callback
-```
+## 🚀 How it Works
+1.  **Scraping:** The `scraper.py` script automates a browser to navigate match histories, expanding round details to extract economic and kill-feed data.
+2.  **Engineering:** Raw team cash and equipment values are merged into a single `value_gap` feature ($Value_{CT} - Value_{T}$).
+3.  **Modeling:** A Logistic Regression classifier uses the **Sigmoid function** to calculate win probability.
+    $$\sigma(z) = \frac{1}{1 + e^{-z}}$$
+4.  **Evaluation:** Success is measured through **Confusion Matrices** and **ROC-AUC curves** to separate systemic wins from "tactical upsets."
 
-(Port 8080 avoids conflict with Jupyter on 8888.) Then click **Save**. If you use a different URI (e.g. `http://localhost:8080/callback`), set the same value in `.env` as `SPOTIPY_REDIRECT_URI=...`.
 
-### 3. Launch the notebook
 
-```bash
-jupyter notebook sonic_blueprint_pipeline.ipynb
-```
+## 📂 Repository Structure
+* `ML_assignment.ipynb`: The complete notebook containing EDA, training, and evaluation.
+* `cs2_final_clean_data.csv`: The processed dataset of 424 round observations.
+* `scraper/`: (Optional) Python scripts for the Selenium automation pipeline.
+* `requirements.txt`: List of necessary Python libraries.
 
-Or from VS Code / Cursor: open `sonic_blueprint_pipeline.ipynb` and use "Run All" or run cells one by one.
-
-### 4. Run the pipeline
-
-- Execute cells **in order** (top to bottom).
-- First run: you’ll be asked to log in to Spotify in the browser (OAuth).
-- The notebook will: fetch liked tracks → get audio features → scale → fit K-Means → show elbow plot, PCA scatter, and radar chart of cluster “vibes”.
-
-## Requirements
-
-- Python 3.10+
-- Spotify account and app (Client ID + Client Secret)
-
-## Project layout
-
-- `sonic_blueprint_pipeline.ipynb` — main notebook (ingestion, preprocessing, K-Means, PCA, visualizations)
-- `requirements.txt` — Python dependencies
-- `.env` — your credentials (create locally, do not commit)
+## ⚙️ Installation
+To run this project locally:
+1. Clone the repo: `git clone https://github.com/your-username/your-repo-name.git`
+2. Install dependencies: `pip install -r requirements.txt`
+3. Launch the notebook: `jupyter notebook ML_assignment.ipynb`
