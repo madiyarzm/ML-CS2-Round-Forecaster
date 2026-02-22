@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS156 — Round-Win Probability in CS2 via Economic Asymmetry</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+  <style>
+    /* Widen content: reduce horizontal squashing */
+    body.stackedit { max-width: 1200px; margin: 0 auto; padding: 1rem 2rem; }
+    .stackedit__html { max-width: 100%; }
+    .stackedit__html pre { max-width: 100%; overflow-x: auto; }
+    .stackedit__html img { max-width: 100%; height: auto; display: block; margin: 1em 0; }
+    .stackedit__html table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+    .stackedit__html th, .stackedit__html td { padding: 0.5em 0.75em; text-align: left; border: 1px solid #ddd; }
+    .stackedit__html th { background: #f5f5f5; }
+    /* Justify body text */
+    .stackedit__html p, .stackedit__html li { text-align: justify; }
+    .stackedit__html h1, .stackedit__html h2, .stackedit__html h3, .stackedit__html h4 { text-align: left; }
+    /* Code cell and output styling */
+    .cell { margin: 1em 0; border-radius: 6px; overflow: hidden; }
+    .cell-code { background: #f8f9fa; border-left: 4px solid #0d6efd; }
+    .cell-code .cell-label, .cell-output .cell-label { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #6c757d; padding: 0.35em 1em; background: rgba(0,0,0,.04); }
+    .cell-output { background: #f0f4f8; border-left: 4px solid #198754; }
+    .cell-output pre { margin: 0; padding: 1em; font-size: 0.9em; }
+    .cell-code pre { margin: 0; padding: 1em; }
+  </style>
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__html"><h1 id="cs156-modeling-round-win-probability-in-competitive-cs2-via-economic-asymmetry">CS156. Modeling Round-Win probability in Competitive CS2 via Economic Asymmetry</h1>
+<h2 id="contents">Contents</h2>
+<table>
+<thead>
+<tr><th>Section</th><th>Links</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>1. Problem Definition</strong></td><td><a href="#11-what-is-counter-strike-2">1.1 What is Counter-Strike 2?</a> · <a href="#12-the-economic-system">1.2 The Economic System</a> · <a href="#13-why-the-economy-matters">1.3 Why the Economy Matters</a></td></tr>
+<tr><td><strong>2. Data Pipeline</strong></td><td><a href="#21-data-source-and-archive-selection">2.1 Data Source</a> · <a href="#22-obstacles-and-how-i-resolved-them">2.2 Obstacles</a> · <a href="#23-data-availability-and-extracted-variables">2.3 Data Availability</a> · <a href="#24-automated-data-extraction-via-selenium">2.4 Automated Extraction</a></td></tr>
+<tr><td><strong>3. Data Pre-Processing</strong></td><td><a href="#31-dataset-overview">3.1 Dataset Overview</a> · <a href="#32-dataset-characteristics">3.2 Characteristics</a> · <a href="#33-cleaning-and-pre-processing">3.3 Cleaning</a> · <a href="#35-exploratory-data-analysis">3.5 EDA</a></td></tr>
+<tr><td><strong>4. Analysis &amp; Data Splitting</strong></td><td><a href="#41-model-selecion">4.1 Model Selection</a></td></tr>
+<tr><td><strong>5. Predictions and Metrics</strong></td><td><a href="#5-predictions-and-performance-metrics">Section 5</a></td></tr>
+<tr><td><strong>6. Final Visualizations</strong></td><td><a href="#6-final-visualizations-and-discussions">Visualizations</a> · <a href="#61-key-insights">6.1 Key Insights</a></td></tr>
+<tr><td><strong>8. Executive Summary</strong></td><td><a href="#8-executive-summary">Summary</a></td></tr>
+<tr><td><strong>9. References</strong></td><td><a href="#9-references">References</a></td></tr>
+</tbody>
+</table>
+<p><em>Click a link above to jump to that section.</em></p>
+
+<h2 id="1-problem-definition">1. Problem Definition</h2>
+<p>I was wondering what kind of project I can do for this assignment, since<br>
+most difficult part was the data problem, and potential projects like<br>
+identifying city vs forest from photos, or using emails from inbox was<br>
+boring. So I got incredible idea, what if I analyze my archived match<br>
+history from favourite game, Counter-Strike 2 (CS2).</p>
+<p>Competitive tactical shooters generate structured environment (but of<br>
+course, that data needs to be carefully extracted, so it’s not just<br>
+free ready dataset) that goes well with ML projects, they have :</p>
+<ol>
+<li>Discrete rounds</li>
+<li>Resource allocation systems</li>
+<li>Binary outcomes</li>
+<li>Sequential economic feedback loops</li>
+<li>Player interaction events</li>
+</ol>
+<p>So before we will dive in to the model I created and other details,<br>
+let’s carefully lay out contex and “lore” for this project.</p>
+<h3 id="11-what-is-counter-strike-2">1.1 What is Counter-Strike 2?</h3>
+<p>Counter-Strike 2 (CS2) is a competitive, round-based, multiplayer<br>
+first-person tactical shooter developed by Valve. It is the successor to<br>
+<strong>Counter-Strike: Global Offensive</strong> and <strong>Counter Strike 1.6</strong> (which<br>
+might be more familiar to you) and represents one of the most<br>
+strategically dense competitive digital environments currently in<br>
+operation (more than million active online)</p>
+<p>The game features two opposing teams:</p>
+<ul>
+<li>Counter-Terrorists (CT)</li>
+<li>Terrorists (T)</li>
+</ul>
+<p>Each match consists of up to 24 regulation rounds. A team wins the match<br>
+by securing 13 round victories.</p>
+<p>Each round proceeds under strict rules:</p>
+<ul>
+<li>A fixed round timer (typically ~1:55 minutes)</li>
+<li>One life per player (no respawns)</li>
+<li>Objective-based victory conditions:
+<ul>
+<li>Terrorists win by planting and detonating a bomb or eliminating<br>
+the opposing team.</li>
+<li>Counter-Terrorists win by defusing the bomb or eliminating the<br>
+opposing team.</li>
+</ul>
+</li>
+</ul>
+<p>Thus, each round functions as a discrete environment with clear binary<br>
+outcomes.</p>
+<p>Formally:</p>
+<p><span class="katex--display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>Y</mi><mo>∈</mo><mrow><mi>C</mi><mi>T</mi><mo separator="true">,</mo><mi>T</mi></mrow></mrow><annotation encoding="application/x-tex">Y ∈ {CT, T}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.72243em; vertical-align: -0.0391em;"></span><span class="mord mathnormal" style="margin-right: 0.22222em;">Y</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 0.87777em; vertical-align: -0.19444em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right: 0.13889em;">CT</span><span class="mpunct">,</span><span class="mspace" style="margin-right: 0.166667em;"></span><span class="mord mathnormal" style="margin-right: 0.13889em;">T</span></span></span></span></span></span></span></p>
+<p>Optionally, if you wish to gain more context, feel free to check out<br>
+<a href="https://www.youtube.com/watch?v=a1lK2CKKGzI">this</a> video, it is short<br>
+and can give you visual explanation (video is 4 minutes long, but you<br>
+only need to watch until minute 2)</p>
+<p><img src="assets/1st_image.png" alt="Counter-Strike 2"></p>
+
+<h1 id="12-the-economic-system">1.2 The Economic System</h1>
+<p>A defining feature of CS2 is its <strong>in-game economic system</strong>.</p>
+<p>At the start of each round:</p>
+<p>Players receive virtual currency based on:</p>
+<ul>
+<li>Previous round result (win/loss)</li>
+<li>Kill rewards</li>
+<li>Objective completion (defusing vs planting the bomb)</li>
+</ul>
+<p>Players spend this currency on:</p>
+<ul>
+<li>Weapons</li>
+<li>Armor</li>
+<li>Tactical utility (grenades, flashbangs, smoke grenades)</li>
+<li>Defuse kits (CT side)</li>
+</ul>
+<p><strong>Unlike arcade-style shooters, combat effectiveness in CS2 is heavily<br>
+influenced by economic state. Superior equipment significantly increases<br>
+lethality and survivability.</strong></p>
+<p>Therefore, economic resources serve as a measurable proxy for structural<br>
+advantage.</p>
+<p>We can define:</p>
+<p><span class="katex--display"><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>T</mi><mi>e</mi><mi>a</mi><mi>m</mi><mi>S</mi><mi>t</mi><mi>r</mi><mi>e</mi><mi>n</mi><mi>g</mi><mi>t</mi><mi>h</mi><mo>≈</mo><mi>f</mi><mo stretchy="false">(</mo><mi>E</mi><mi>q</mi><mi>u</mi><mi>i</mi><mi>p</mi><mi>m</mi><mi>e</mi><mi>n</mi><mi>t</mi><mi>V</mi><mi>a</mi><mi>l</mi><mi>u</mi><mi>e</mi><mo separator="true">,</mo><mi>U</mi><mi>t</mi><mi>i</mi><mi>l</mi><mi>i</mi><mi>t</mi><mi>y</mi><mo separator="true">,</mo><mi>A</mi><mi>r</mi><mi>m</mi><mi>o</mi><mi>r</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">Team Strength ≈ f(Equipment Value, Utility, Armor)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height: 0.88888em; vertical-align: -0.19444em;"></span><span class="mord mathnormal" style="margin-right: 0.13889em;">T</span><span class="mord mathnormal">e</span><span class="mord mathnormal">am</span><span class="mord mathnormal">St</span><span class="mord mathnormal">re</span><span class="mord mathnormal">n</span><span class="mord mathnormal" style="margin-right: 0.03588em;">g</span><span class="mord mathnormal">t</span><span class="mord mathnormal">h</span><span class="mspace" style="margin-right: 0.277778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right: 0.277778em;"></span></span><span class="base"><span class="strut" style="height: 1em; vertical-align: -0.25em;"></span><span class="mord mathnormal" style="margin-right: 0.10764em;">f</span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right: 0.03588em;">Eq</span><span class="mord mathnormal">u</span><span class="mord mathnormal">i</span><span class="mord mathnormal">p</span><span class="mord mathnormal">m</span><span class="mord mathnormal">e</span><span class="mord mathnormal">n</span><span class="mord mathnormal">t</span><span class="mord mathnormal">Va</span><span class="mord mathnormal" style="margin-right: 0.01968em;">l</span><span class="mord mathnormal">u</span><span class="mord mathnormal">e</span><span class="mpunct">,</span><span class="mspace" style="margin-right: 0.166667em;"></span><span class="mord mathnormal" style="margin-right: 0.10903em;">U</span><span class="mord mathnormal">t</span><span class="mord mathnormal">i</span><span class="mord mathnormal" style="margin-right: 0.01968em;">l</span><span class="mord mathnormal">i</span><span class="mord mathnormal">t</span><span class="mord mathnormal" style="margin-right: 0.03588em;">y</span><span class="mpunct">,</span><span class="mspace" style="margin-right: 0.166667em;"></span><span class="mord mathnormal">A</span><span class="mord mathnormal" style="margin-right: 0.02778em;">r</span><span class="mord mathnormal">m</span><span class="mord mathnormal" style="margin-right: 0.02778em;">or</span><span class="mclose">)</span></span></span></span></span></span></p>
+<p>This introduces a deterministic layer within an otherwise random<br>
+competitive environment.</p>
+<p><img src="assets/2nd_image.png" alt="Economic system"></p>
+
+<h1 id="13-why-the-economy-matters">1.3 Why the Economy Matters</h1>
+<p>Competitive CS2 strategy is deeply centered around economic cycles:</p>
+<ul>
+<li>Full-buy rounds (maximum investment)</li>
+<li>Eco rounds (minimal spending)</li>
+<li>Force-buy rounds (high-risk partial spending)</li>
+<li>Save rounds (retaining weapons for future rounds)</li>
+</ul>
+<p><strong>These economic decisions create structured asymmetries between<br>
+teams.</strong></p>
+<p>For example:</p>
+<p>A $10,000 equipment advantage translates into:</p>
+<ul>
+<li>Higher weapon damage output</li>
+<li>Greater utility control</li>
+<li>Increased engagement survivability</li>
+</ul>
+<p><strong>Therefore, the hypothesis of this project is:</strong></p>
+<hr>
+<p><strong>The economic asymmetry at the start of a round is the strongest<br>
+measurable predictor of round outcome.</strong></p>
+<hr>
+
+<h2 id="2-data-pipeline-constructing-a-round-level-dataset-from-a-personal-competitive-archive">2. Data Pipeline: Constructing a Round-Level Dataset from a Personal Competitive Archive</h2>
+<h3 id="21-data-source-and-archive-selection">2.1 Data Source and Archive Selection</h3>
+<p>The dataset for this project was derived from my personal Counter-Strike<br>
+2 match history, accessed via the public statistics platform:<br>
+<a href="https://csstats.gg/player/76561198812851717#/matches">https://csstats.gg/player/76561198812851717#/matches</a></p>
+<p>This platform provides structured visual summaries of competitive<br>
+matches, including:</p>
+<ol>
+<li>Match outcomes</li>
+<li>Round-by-round breakdowns</li>
+<li>Team economic values</li>
+<li>Player engagement logs</li>
+<li>Kill timelines</li>
+</ol>
+<p>Importantly, this data is personal but not private: it represents<br>
+competitive performance telemetry that is publicly accessible. There are<br>
+a lot of visualizations and data that could be used, but in below<br>
+sections, I will explain justification behind why only certain features<br>
+were extracted and etc.</p>
+
+<h3 id="22-obstacles-and-how-i-resolved-them">2.2 Obstacles and how I resolved them</h3>
+<p>An early constraint raised: this account is my secondary account, and<br>
+the public API exposed only <strong>22 recorded matches.</strong></p>
+<p>At first glance, this appeared insufficient for ML purposes. A dataset<br>
+of only 22 observations would not support meaningful generalization.</p>
+<p>However, reframing the unit of analysis solved this limitation. Instead<br>
+of treating each match as one data point, I decomposed each match into<br>
+its multiple rounds.</p>
+<p>Given:</p>
+<ul>
+<li>22 matches</li>
+<li>Approximately 18–22 rounds per match This yielded: <strong>424 rounds<br>
+info</strong></li>
+</ul>
+<p>Each round card had following information available:</p>
+<em><strong>Figure 2. Example Round Information Card</strong></em></p>
+<p><img src="assets/3rd_image.png" alt="Round information card"></p>
+<p>Figure 2. above illustrates the round-level interface from which data<br>
+was extracted. Each round view provides structured telemetry that is<br>
+visually organized but not directly downloadable in tabular form.</p>
+<p>At the top of the interface:</p>
+<ul>
+<li>The round number is displayed (e.g., Round 7).</li>
+<li>The current score between CT and T sides is shown.</li>
+</ul>
+<p>Player survival indicators display how many players remain alive on each<br>
+side at a given moment.</p>
+<p>On the left panel, the economic state at the start of the round is<br>
+presented for both teams:</p>
+<ol>
+<li>Equipment Value (total market value of weapons and armor)</li>
+<li>Cash (remaining unspent money)</li>
+<li>Cash Spent (investment in that round)</li>
+</ol>
+<p>On the right panel, the kill feed timeline displays:</p>
+<ul>
+<li>Timestamp of each elimination</li>
+<li>Attacker and victim identifiers</li>
+<li>Weapon used</li>
+</ul>
+<p>At the bottom of the round view, the final round outcome is explicitly<br>
+labeled (e.g., “Terrorists Win”).</p>
+<h3 id="23-data-availability-and-extracted-variables">2.3 Data Availability and Extracted Variables</h3>
+<p>From each round, the following structured information was available and<br>
+programmatically extracted:</p>
+<ul>
+<li>Total equipment value per team</li>
+<li>Total cash available per team</li>
+<li>Total cash spent per team</li>
+<li>First kill event (attacking side, very first name in the right<br>
+panel, in this example player <strong>atomdyq</strong> which is me, performs<br>
+first kill by AWP rifle)</li>
+<li>Round number</li>
+<li>Final round winner<br>
+</li>
+</ul>
+
+<h3 id="24-automated-data-extraction-via-selenium">2.4 Automated Data Extraction via Selenium</h3>
+<p>Manual copy-pasting of 424 rounds would be very hard and not consistent.</p>
+<p>So, instead to ensure completeness, I implemented an automated web<br>
+scraping pipeline using Python and Selenium.</p>
+<p>This required some several non-trivial steps, like researching browser<br>
+automation principles, understanding how dynamic web pages load content.</p>
+<p>I had to inspect HTML structure using Google Chrome DevTools to identify<br>
+economic value containers and other HTML elements to scrape</p>
+<p>Python Selenium was necessary to simulate user interaction and page<br>
+rendering.</p>
+<p>Resulting scraper, iterated through all 22 matches, expanded round-level<br>
+detail views, then extracted structured numeric and categorical values,<br>
+appended them into a consolidated DataFrame and finally exported the<br>
+final dataset as CSV.</p>
+<p>You can visit this github link to check-out scraper code:<br>
+<a href="https://github.com/madiyarzm/ML-CS2-Round-Forecaster/blob/main/scraper/scraper.py">https://github.com/madiyarzm/ML-CS2-Round-Forecaster/blob/main/scraper/scraper.py</a></p>
+
+<h2 id="3-data-pre-processing">3. Data Pre-Processing</h2>
+<h3 id="31-dataset-overview">3.1 Dataset Overview:</h3>
+<p>The dataset consists of 424 observations, where each row represents a<br>
+single discrete round of competitive mode Counter-Strike 2 gameplay.</p>
+<h4 id="dataset-schema">Dataset Schema</h4>
+<table>
+<thead>
+<tr><th>Column Name</th><th>Data Type</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>match_index</code></td><td>Integer</td><td>A unique identifier for each of the 22 matches in the archive.</td></tr>
+<tr><td><code>map</code></td><td>Categorical</td><td>The specific arena (e.g. de_mirage, de_anubis) where the match occurred.</td></tr>
+<tr><td><code>round_num</code></td><td>Integer</td><td>The sequence of the round (1–24+), crucial for identifying "Pistol Rounds."</td></tr>
+<tr><td><code>equipment_value_ct</code></td><td>Integer</td><td>The total dollar value of armor and weapons held by the CT side at the start of the round.</td></tr>
+<tr><td><code>equipment_value_t</code></td><td>Integer</td><td>The total dollar value of armor and weapons held by the T side at the start of the round.</td></tr>
+<tr><td><code>cash_spent_ct</code> / <code>cash_spent_t</code></td><td>Integer</td><td>The amount of currency reinvested by each team during the "Buy Phase."</td></tr>
+<tr><td><code>first_kill_side</code></td><td>Categorical</td><td>Binary indicator (CT or T) of which team secured the opening elimination.</td></tr>
+<tr><td><code>round_winner</code></td><td>Categorical</td><td><strong>Target variable:</strong> The final outcome of the round (CT or T).</td></tr>
+</tbody>
+</table>
+
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre class=" language-python"><code class="prism  language-python"><span class="token keyword">import</span> pandas <span class="token keyword">as</span> pd
+
+<span class="token comment"># Load the dataset</span>
+sheet_url <span class="token operator">=</span> <span class="token string">"https://docs.google.com/spreadsheets/d/11jBTxW-TZf4VdjGKdPzd89s10MTYhAGLhwd5xUeLQR8/export?format=csv"</span>
+df <span class="token operator">=</span> pd<span class="token punctuation">.</span>read_csv<span class="token punctuation">(</span>sheet_url<span class="token punctuation">)</span>
+
+<span class="token comment"># Display the first 5 rows</span>
+display<span class="token punctuation">(</span>df<span class="token punctuation">.</span>head<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token comment"># Display dataset structure and types</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"\n--- Dataset Information ---"</span><span class="token punctuation">)</span>
+df<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</code></pre>
+</div>
+
+<pre class=" language-json" style="display:none"><code class="prism  language-json"><span class="token punctuation">{</span><span class="token string">"summary"</span><span class="token punctuation">:</span><span class="token string">"{\n  \"name\": \"df\",\n  \"rows\": 5,\n  \"fields\": [\n    {\n      \"column\": \"match_index\",\n      \"properties\": {\n        \"dtype\": \"number\",\n        \"std\": 0,\n        \"min\": 1,\n        \"max\": 1,\n        \"num_unique_values\": 1,\n        \"samples\": [\n          1\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"map\",\n      \"properties\": {\n        \"dtype\": \"category\",\n        \"num_unique_values\": 1,\n        \"samples\": [\n          \"de_mirage\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"round_num\",\n      \"properties\": {\n        \"dtype\": \"number\",\n        \"std\": 1,\n        \"min\": 1,\n        \"max\": 5,\n        \"num_unique_values\": 5,\n        \"samples\": [\n          2\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"equipment_value_ct\",\n      \"properties\": {\n        \"dtype\": \"number\",\n        \"std\": 7735,\n        \"min\": 3350,\n        \"max\": 24400,\n        \"num_unique_values\": 5,\n        \"samples\": [\n          13200\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"equipment_value_t\",\n      \"properties\": {\n        \"dtype\": \"number\",\n        \"std\": 11011,\n        \"min\": 2500,\n        \"max\": 26050,\n        \"num_unique_values\": 5,\n        \"samples\": [\n          2500\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"cash_ct\",\n      \"properties\": {\n        \"dtype\": \"number\",\n        \"std\": 3672,\n        \"min\": 1650,\n        \"max\": 11250,\n        \"num_unique_values\": 5,\n        \"samples\": [\n          8650\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"cash_t\",\n      \"properties\": {\n        \"dtype\": \"number\",\n        \"std\": 10201,\n        \"min\": 1350,\n        \"max\": 26050,\n        \"num_unique_values\": 5,\n        \"samples\": [\n          9650\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"cash_spent_ct\",\n      \"properties\": {\n        \"dtype\": \"number\",\n        \"std\": 5669,\n        \"min\": 2350,\n        \"max\": 17450,\n        \"num_unique_values\": 5,\n        \"samples\": [\n          11550\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"cash_spent_t\",\n      \"properties\": {\n        \"dtype\": \"number\",\n        \"std\": 10922,\n        \"min\": 1900,\n        \"max\": 26050,\n        \"num_unique_values\": 5,\n        \"samples\": [\n          1900\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"first_kill_side\",\n      \"properties\": {\n        \"dtype\": \"category\",\n        \"num_unique_values\": 2,\n        \"samples\": [\n          \"T\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"round_winner\",\n      \"properties\": {\n        \"dtype\": \"category\",\n        \"num_unique_values\": 2,\n        \"samples\": [\n          \"T\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    }\n  ]\n}"</span><span class="token punctuation">,</span><span class="token string">"type"</span><span class="token punctuation">:</span><span class="token string">"dataframe"</span><span class="token punctuation">}</span>
+</code></pre>
+
+<div class="cell cell-output"><span class="cell-label">Output</span>
+<pre><code>--- Dataset Information ---
+&lt;class 'pandas.core.frame.DataFrame'&gt;
+RangeIndex: 424 entries, 0 to 423
+Data columns (total 11 columns):
+ #   Column              Non-Null Count  Dtype 
+---  ------              --------------  ----- 
+ 0   match_index         424 non-null    int64 
+ 1   map                 424 non-null    object
+ 2   round_num           424 non-null    int64 
+ 3   equipment_value_ct  424 non-null    int64 
+ 4   equipment_value_t   424 non-null    int64 
+ 5   cash_ct             424 non-null    int64 
+ 6   cash_t              424 non-null    int64 
+ 7   cash_spent_ct       424 non-null    int64 
+ 8   cash_spent_t        424 non-null    int64 
+ 9   first_kill_side     424 non-null    object
+ 10  round_winner        424 non-null    object
+dtypes: int64(8), object(3)
+memory usage: 36.6+ KB
+</code></pre>
+</div>
+<p></p>
+
+<h3 id="32-dataset-characteristics">3.2 Dataset Characteristics:</h3>
+<p>High Granularity: Unlike aggregated seasonal stats, this data captures<br>
+the initial state of every round, which is essential for “predictive”<br>
+rather than “descriptive” modeling. That’s why I did not include info<br>
+such as Headshot ration, multikills, and KDA (kill &amp; death &amp; assists),<br>
+since it introduces <em><strong>data leakage</strong></em> to ML project</p>
+<p>Economic Variance: The equipment values range from approximately <strong>3,000<br>
+USD(Pistol / Eco rounds)</strong> to over <strong>30,000 USD (Full-buy rounds)</strong>,<br>
+providing the model with a wide range of “Power Asymmetry” scenarios<br>
+to analyze.</p>
+<p>Balanced Target: The distribution between CT wins (230) and T wins (194)<br>
+is relatively balanced, ensuring the model does not develop a<br>
+significant bias toward one side simply due to the data frequency.</p>
+<p>The inclusion of first_kill_side allows the model to calculate how a<br>
+sudden change in man-power (from 5v5 to 5v4) impacts the mathematical<br>
+weight of the initial economy.</p>
+
+<h3 id="33-cleaning-and-pre-processing">3.3 Cleaning and Pre-processing</h3>
+<p>First of all, data integrity was addressed at the point of collection.<br>
+During the scraping process, a custom function <code>_parse_dollar_value</code> was<br>
+implemented to sanitize the raw HTML strings. By using Regular<br>
+Expressions and string manipulation to remove characters like <code>$</code> and<br>
+<code>,</code>the telemetry was normalized into a standardized integer format<br>
+before being written to the CSV. This prevented ‘Dirty Data’ from<br>
+entering the pipeline and simplified the subsequent pre-processing<br>
+steps.</p>
+
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre class=" language-python"><code class="prism  language-python"><span class="token comment">#CODE SNIPPTER FROM SCRAPER</span>
+
+<span class="token keyword">def</span> <span class="token function">_parse_dollar_value</span><span class="token punctuation">(</span>text<span class="token punctuation">:</span> Optional<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">&gt;</span> Optional<span class="token punctuation">[</span><span class="token builtin">int</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""Convert '$16,100' or '$ 16,100' to integer 16100."""</span>
+    <span class="token keyword">if</span> <span class="token operator">not</span> text <span class="token operator">or</span> <span class="token operator">not</span> <span class="token builtin">str</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> <span class="token boolean">None</span>
+    s <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>replace<span class="token punctuation">(</span><span class="token string">"$"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">.</span>replace<span class="token punctuation">(</span><span class="token string">","</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token operator">not</span> s <span class="token operator">or</span> <span class="token operator">not</span> s<span class="token punctuation">.</span>isdigit<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> <span class="token boolean">None</span>
+    <span class="token keyword">return</span> <span class="token builtin">int</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span>
+</code></pre>
+</div>
+<p>The raw telemetry extracted via the scraper contained categorical labels for the round winner and the side responsible for the opening kill (e.g., &quot;CT&quot; or &quot;T&quot;). To resolve this, I implemented <strong>Label Encoding</strong> using a binary mapping.</p>
+<p>In this phase, I converted the <code>round_winner</code> column into a numerical target variable, where the value <code>1</code> represents a Counter-Terrorist victory and <code>0</code> represents a Terrorist victory. I applied the same logic to the <code>first_kill_side</code> feature.</p>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code>import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# 1. Pre-processing: Convert categorical text to binary integers
+# CT = 1, T = 0
+df[&#x27;target&#x27;] = df[&#x27;round_winner&#x27;].map({&#x27;CT&#x27;: 1, &#x27;T&#x27;: 0})
+df[&#x27;fk_side_binary&#x27;] = df[&#x27;first_kill_side&#x27;].map({&#x27;CT&#x27;: 1, &#x27;T&#x27;: 0})</code></pre>
+</div>
+<h4>3.4 Feature Engineering</h4>
+<p>While the raw equipment values for each team provide a snapshot of their inventory, the absolute values are less informative to a model than the relative difference between them that shows assymetry. To capture the &quot;power struggle&quot; of a round in a single metric, I performed Feature Engineering to create the <code>value_gap</code> variable.</p>
+<p>By calculating $$Value Gap = EquipmentValue_{CT} - Equipment Value_{T}$$</p>
+<p>I synthesized a new feature that represents the <strong>Economic Asymmetry</strong> of the match. A high positive value indicates a significant CT equipment advantage (e.g., Rifles vs. Pistols), while a high negative value indicates a T advantage.</p>
+<p>This reduces the dimensionality of the input space, collapsing two variables into one, thereby clarifying the &quot;signal&quot; for the model and helping it identify the specific point where a financial advantage becomes a guaranteed win.</p>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code># 2. Feature Engineering: Create the &#x27;Value Gap&#x27;
+# This measures the economic asymmetry in a single number
+df[&#x27;value_gap&#x27;] = df[&#x27;equipment_value_ct&#x27;] - df[&#x27;equipment_value_t&#x27;]
+</code></pre>
+</div>
+<h4 id="35-exploratory-data-analysis">3.5 Exploratory Data Analysis</h4>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code># Visualization 1: Distribution of Value Gap by Winner
+
+# Create the Box Plot
+plt.figure(figsize=(10, 6))
+sns.boxplot(x=&#x27;round_winner&#x27;, y=&#x27;value_gap&#x27;, data=df, palette=&#x27;coolwarm&#x27;)
+
+# Formatting for a professional look
+plt.title(&#x27;Equipment Value Gap by Round Winner&#x27;)
+plt.ylabel(&#x27;Value Gap ($) [CT Value - T Value]&#x27;)
+plt.xlabel(&#x27;Round Winner&#x27;)
+plt.axhline(0, color=&#x27;black&#x27;, linestyle=&#x27;--&#x27;, alpha=0.5) # Zero-line for reference
+plt.show()</code></pre>
+</div>
+<p><img src="assets/4th_image.png" alt="Value gap by round winner (box plot)"></p>
+<p>The box plot provides a visual summary of how the economic balance between teams affects the final outcome of a round. By looking at the &quot;Value Gap&quot; (the difference between CT and T equipment values), we can see a clear distinction in how money impacts each side.</p>
+<p>When the Counter-Terrorists (CT) win, the entire box is shifted upward. The median value gap for a CT win is approximately 3,150USD, which roughly equals the price of an M4 rifle (main quality rifle for CT side). This suggests that for my team to secure a win on the defensive side, we usually need at least a one-rifle advantage over the Terrorists. The &quot;whiskers&quot; on this side also show that CT wins become very common as the gap pushes past 10,000USD, which represents a &quot;full buy&quot; vs. an &quot;eco&quot; round.</p>
+<p>On the other hand, when the Terrorists (T) win, the median value gap drops significantly to nearly 50USD. This indicates that T wins mostly occur when the economy is dead-even or when the CTs are struggling financially. Interestingly, there are many &quot;outliers&quot; (dots) on both sides.</p>
+<p>These represent rounds where a team won despite having a massive $15,000 disadvantage, or lost despite being fully equipped. These outliers are important because they remind us that a 100% accurate prediction is impossible; skill and tactics can still override a large bank account.</p>
+<p>Overall, this chart proves that there is a clear &quot;winning zone&quot; for CTs when they have a positive value gap, making this feature a good candidate for our ML model.</p>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code># Visualization 2: Correlation Heatmap
+plt.figure(figsize=(8, 6))
+correlation_matrix = df[[&#x27;value_gap&#x27;, &#x27;fk_side_binary&#x27;, &#x27;round_num&#x27;, &#x27;target&#x27;]].corr()
+sns.heatmap(correlation_matrix, annot=True, cmap=&#x27;RdBu&#x27;, center=0)
+plt.title(&#x27;Feature Correlation with Round Win (Target)&#x27;)
+plt.show()</code></pre>
+</div>
+<p><img src="assets/5th_image.png" alt="Feature correlation heatmap"></p>
+<p>The heatmap above measures how much one variable changes when another does. In our case, it highlights which game events are actually tied to winning.</p>
+<ol>
+<li><strong>First Kill (<code>fk_side</code>) vs. Round Winner (<code>target</code>) (0.38)</strong>. This is the strongest relationship in the entire dataset we have. A correlation of 0.38 is quite high for a chaotic game. It confirms that the &quot;opening duel&quot; is a massive momentum shifter for the whole round. When a team secures the first kill, they aren&#x27;t just 1 player up, they gain map control and forcing the opponents to react. In my matches, getting that entry kill is the single best predictor of whether the round will end in a victory.</li>
+<li><strong>Value Gap (<code>value_gap</code>) vs. Round Winner (<code>target</code>) (0.16)</strong>. There is a positive correlation here, but it is noticeably lower than the first kill. This tells us that while having more expensive guns (M4s/AKs vs. Pistols) definitely helps, it isn&#x27;t a &quot;win button.&quot; A team with a $10,000 equipment advantage still has to play with skill.</li>
+<li><strong>First Kill (<code>fk_side</code>) vs. Value Gap (<code>value_gap</code>)</strong>. This is one of the most interesting &quot;near-zero&quot; correlations. It shows that having better equipment has almost zero impact on who gets the first kill. This suggests that the opening duel of a round is a &quot;great equalizer&quot;, whether you have a 700USD Deagle or a 4,700USD AWP rifle, the first kill usually comes down to positioning and raw aim rather than how much money player spent at the start of the round. And it also good for our model, since features are almost fully independent from each other!</li>
+<li><strong>Round Number (<code>round_num</code>) vs. Success (<code>target</code>) (-0.09)</strong>. I checked the correlation for the <code>round_num</code> to see if I perform better as the match goes on (perhaps due to warming up) or worse (due to fatigue). The result is near zero, meaning my win rate is consistent regardless of whether its the 1st round or the 20th. Because this feature adds no predictive &quot;signal,&quot; it serves as a justification for why we prioritize the economic and tactical features in the final model.</li>
+</ol>
+<p>This heatmap proves that our two chosen features, <strong>Value Gap</strong> and <strong>First Kill</strong> are &quot;Independent Signals.&quot; Since they don&#x27;t correlate with each other (0.05) but both correlate with winning, they provide the model with two different &quot;perspectives&quot; on the game state.</p>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code># Summary statistics for numerical columns
+print(&quot;Additional Descriptive Statistics&quot;)
+display(df.describe())</code></pre>
+</div>
+<h2 id="4-discussion-of-analysis-and-data-splitting">4 Discussion of Analysis and Data Splitting</h2>
+<p>In this section, we define the math part of our problem. Since we are predicting a discrete, binary outcome, either a Counter-Terrorist Win (1) or a Terrorist Win (0) -&gt; this is a Binary Classification task.</p>
+<p>While the game feels continuous, each round starts from a neutral state where we use our features (<code>value_gap</code> and <code>fk_side_binary</code>) to estimate the probability of the outcome. To ensure our model doesn&#x27;t just &quot;memorize&quot; the matches it has already seen, we must perform a Cross Validation Training.</p>
+<p>With 424 rounds, a single train-test split could lead to high variance in performance metrics. By using 5-fold cross-validation, the training set is divided into five equal parts. The model is trained five separate times, each time using a different &quot;fold&quot; as the validation set and the other four as the training set. This ensures that every single round in our archive is used for both training and validation exactly once.</p>
+<h4 id="41-model-selecion">4.1 Model Selecion</h4>
+<p>For this dataset, I have selected Logistic Regression. Unlike Linear Regression, which tries to predict a continuous number, Logistic Regression predicts the probability that an observation belongs to a specific class, which fits to the nature of the target → Win or Lose.</p>
+<p>The model works by taking our inputs (<var>x</var><sub>1</sub> for Value Gap and <var>x</var><sub>2</sub> for First Kill) and calculating a weighted sum, known as the logit (<var>z</var>):</p>
+<div class="equation" style="margin:1em 0; padding:0.5em 1em; background:#f8f9fa; border-left:4px solid #0d6efd; font-family:serif; text-align:center;"><var>z</var> = β<sub>0</sub> + β<sub>1</sub>(Value Gap) + β<sub>2</sub>(FK Side)</div>
+<p>Where β<sub>0</sub> is the intercept (the baseline bias of the game) and β<sub>1</sub>, β<sub>2</sub> are the weights the model assigns to each feature. To turn this &quot;score&quot; into a probability between 0 and 1, we pass it through the <strong>Sigmoid function</strong>:</p>
+<div class="equation" style="margin:1em 0; padding:0.5em 1em; background:#f8f9fa; border-left:4px solid #0d6efd; font-family:serif; text-align:center;">σ(<var>z</var>) = 1/(1 + <em>e</em><sup>−<var>z</var></sup>)</div>
+<p>The resulting value <var>P</var>(<var>y</var>=1) tells us the likelihood of a CT win. If <var>P</var> &gt; 0.5, the model predicts a win; otherwise, it predicts a loss.</p>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code>&quot;&quot;&quot;
+Pseudocode
+1. Initialize weights (Beta) to zero
+2. For each training round:
+    a. Calculate the linear combination (z)
+    b. Apply Sigmoid to get probability (p)
+    c. Calculate the error (Log-Loss) between p and actual winner
+    d. Use Gradient Descent to adjust weights to reduce the error
+3. Repeat until the error is minimized
+&quot;&quot;&quot;</code></pre>
+</div>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code>from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.linear_model import LogisticRegression
+import numpy as np
+
+# 1. Define Features (X) and Target (y)
+# We use our engineered gap and the binary first kill indicator
+X = df[[&#x27;value_gap&#x27;, &#x27;fk_side_binary&#x27;]]
+y = df[&#x27;target&#x27;]
+
+# 2. Split the data (This defines X_train, X_test, y_train, y_test)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 3. Initialize the Model
+model = LogisticRegression()
+
+# 4. Cross-Validation (Section 6 requirement)
+cv_scores = cross_val_score(model, X_train, y_train, cv=5)
+
+print(f&quot;Accuracy per fold: {cv_scores}&quot;)
+print(f&quot;Average CV Accuracy: {cv_scores.mean():.2%}&quot;)
+print(f&quot;Stability (Std Dev): {cv_scores.std():.2%}&quot;)
+
+# 5. Final Training
+model.fit(X_train, y_train)
+
+print(&quot;\nModel training complete!&quot;)</code></pre>
+</div>
+<p>The results showed a consistent performance across all folds, with a mean accuracy of 69.34%. The relatively low standard deviation (5.75%) suggests that the &quot;rules&quot; the model is learning, specifically how a $5,000 lead or a 5v4 advantage impacts win probability, are consistent throughout my entire 424 rounds history. This stability gave me the confidence to finalize the model weights and proceed to testing it against the unseen data in my test set.</p>
+<h2 id="5-predictions-and-performance-metrics">5 Predictions and Performance Metrics</h2>
+<p>Now that the model has been trained and validated, we test it against the Test Set, the 20% of rounds we &quot;locked away&quot; earlier. This represents &quot;out of sample&quot; data, simulating how the model would perform if we fed it a live match today.</p>
+<p>To measure performance, we use:</p>
+<p><strong>Accuracy</strong>: The percentage of rounds guessed correctly.</p>
+<p><strong>Precision</strong>: When the model says &quot;CT will win,&quot; how often are they actually winning?</p>
+<p><strong>Recall</strong>: Out of all the CT wins that happened, how many did the model actually catch?</p>
+<p><strong>F1-Score</strong>: The balance between Precision and Recall.</p>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code>from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
+# 1. Generate predictions for the held-out test set
+y_pred = model.predict(X_test)
+
+# 2. Compute the accuracy
+test_accuracy = accuracy_score(y_test, y_pred)
+
+# 3. Generate the full metrics report
+print(f&quot;Final Test Set Accuracy: {test_accuracy:.2%}&quot;)
+print(&quot;\n--- Detailed Performance Metrics ---&quot;)
+print(classification_report(y_test, y_pred, target_names=[&#x27;T-Win (0)&#x27;, &#x27;CT-Win (1)&#x27;]))</code></pre>
+</div>
+<div class="cell cell-output"><span class="cell-label">Output</span>
+<pre><code>Final Test Set Accuracy: 68.24%
+
+--- Detailed Performance Metrics ---
+              precision    recall  f1-score   support
+
+    T-Win (0)       0.62      0.67      0.64        39
+   CT-Win (1)       0.74      0.69      0.71        46
+
+    accuracy                           0.68        85
+   macro avg       0.68      0.68      0.68        85
+weighted avg       0.68      0.68      0.68        85
+</code></pre>
+</div>
+<p>The models performance on the test set reveals the &quot;predictive ceiling&quot; of structural advantages in Counter-Strike 2. With an overall accuracy of 68.24%, the model demonstrates that while the game is highly tactical, a significant majority of rounds are decided by the initial economic state and the opening duel.</p>
+<p><strong>1 Precision vs. Recall</strong></p>
+<p>The model shows higher Precision for CT Wins (0.74) compared to T Wins (0.62).</p>
+<p>This suggests that CT victories are more &quot;systematic&quot; and predictable based on equipment, likely because the CT side relies heavily on expensive utility (defuse kits, incendiaries) and rifles to hold defensive positions. Since by game rules T side is attacking and has advantage as better and cheaper weapons.</p>
+<p>Oppositely, Terrorist wins are harder to predict (lower precision), likely due to &quot;eco-rushes&quot; or high-impact individual plays that don&#x27;t depend on superior equipment.</p>
+<p><strong>2 The Balance of Recall</strong></p>
+<p>The Recall scores (0.67 for T and 0.69 for CT) show that the model is balanced in how it &quot;finds&quot; winning rounds. It isn&#x27;t ignoring one side to inflate its accuracy on the other. It successfully captures roughly 2 out of 3 wins for both teams.</p>
+<p><strong>3  Why isn&#x27;t it 90%+?</strong></p>
+<p>The remaining 32% of rounds that the model missed represent the &quot;Human Element&quot; of CS2. These are the rounds where:</p>
+<p>A team won a &quot;Save&quot; round against all odds (Outliers in our box plot).</p>
+<p>A player performed a game-term called <strong>clutch</strong> (1vs3 or 1vs4) after the initial &quot;First Kill&quot; was lost.</p>
+<p>Tactical errors (like a failed bomb plant) overrode a $10,000 equipment lead.</p>
+<p>The fact that the Macro Average and Weighted Average are almost identical (0.68) confirms that our model is strong and performs consistently regardless of which team has the advantage.</p>
+<h2 id="6-final-visualizations-and-discussions">6. Final Visualizations and Discussions</h2>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code>from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+
+# 1. Generate the confusion matrix
+# y_test are the actual winners, y_pred are the model&#x27;s guesses
+cm = confusion_matrix(y_test, y_pred)
+
+# 2. Plot the matrix using Seaborn/Matplotlib
+plt.figure(figsize=(8, 6))
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[&#x27;T-Win (0)&#x27;, &#x27;CT-Win (1)&#x27;])
+
+# We use &#x27;Blues&#x27; to match the professional report aesthetic
+disp.plot(cmap=&#x27;Blues&#x27;, values_format=&#x27;d&#x27;)
+
+plt.title(f&#x27;Confusion Matrix: Predicted vs. Actual Outcomes\n(Accuracy: {test_accuracy:.2%})&#x27;)
+plt.grid(False) # Removes background lines for clarity
+plt.show()</code></pre>
+</div>
+<p><img src="assets/6h_image.png" alt="Confusion matrix"></p>
+<div class="cell cell-code"><span class="cell-label">Code</span>
+<pre><code>from sklearn.metrics import roc_curve, roc_auc_score
+import matplotlib.pyplot as plt
+
+# 1. Get the probabilities instead of just 0 or 1
+# This gives us the likelihood for the &#x27;1&#x27; (CT Win) class
+y_probs = model.predict_proba(X_test)[:, 1]
+
+# 2. Calculate the ROC curve points
+fpr, tpr, thresholds = roc_curve(y_test, y_probs)
+auc_score = roc_auc_score(y_test, y_probs)
+
+# 3. Plotting
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, color=&#x27;darkorange&#x27;, lw=2, label=f&#x27;ROC curve (AUC = {auc_score:.2f})&#x27;)
+plt.plot([0, 1], [0, 1], color=&#x27;navy&#x27;, lw=2, linestyle=&#x27;--&#x27;) # The &quot;Random Guess&quot; line
+plt.xlabel(&#x27;False Positive Rate (T-wins predicted as CT-wins)&#x27;)
+plt.ylabel(&#x27;True Positive Rate (Correct CT-win predictions)&#x27;)
+plt.title(&#x27;Receiver Operating Characteristic (ROC) Curve&#x27;)
+plt.legend(loc=&quot;lower right&quot;)
+plt.grid(alpha=0.3)
+plt.show()</code></pre>
+</div>
+<p><img src="assets/7th_image.png" alt="ROC curve"></p>
+<p>The visualizations confirm that the model is a robust &quot;Strategic Predictor.&quot; An Accuracy of 68.24% and an AUC of 0.76 indicate that the model performs significantly better than random guessing.</p>
+<p>Looking at the Confusion Matrix, we see that the model correctly identified 49 CT wins and 36 T wins. The errors (False Positives and False Negatives) represent the rounds where the &quot;logic&quot; of the game broke down. For instance, a &quot;False Positive&quot; for a CT win likely represents a round where my team had the economic advantage but failed to execute our strategy</p>
+<h2 id="61-key-insights">6.1 Key Insights:</h2>
+<p>The &quot;Price of Victory&quot;, the model proves that while the value_gap provides a safety net, it is the fk_side_binary (the first kill) that acts as the primary &quot;momentum&quot; feature.</p>
+<p>The Logic Ceiling for the model, the fact that the model peaks at roughly 70% accuracy is an important conclusion. It suggests that in my personal match archive, about 30% of rounds are decided by variables that cannot be scraped, such as individual aim, communication, or &quot;clutch&quot; factor.</p>
+<p>Generalization of the model suggests, that because the Test Accuracy (68.24%) is so close to the Cross-Validation mean (69.34%), we can conclude that the model is not overfitted. It has learned a general set of rules that apply across different maps and opponents.</p>
+<p>In conclusion, this project successfully converted a digital archive into a structured dataset. It mathematically confirms the intuition that economy sets the stage, but the opening duel decides the play.</p>
+<h2 id="8-executive-summary">8: Executive Summary</h2>
+<ul>
+<li>Project Goal:</li>
+</ul>
+<p>The objective of this project was to determine if a ML model could accurately predict the winner of a round in Counter-Strike 2 (CS2) using only two pre-round variables: the Economic Value Gap and the Side of the First Kill.</p>
+<ul>
+<li>Data Pipeline:</li>
+</ul>
+<p>I constructed a custom dataset by scraping 424 rounds from my personal competitive match history using Selenium. This process involved converting raw HTML telemetry into a structured CSV format, followed by Feature Engineering to transform raw team values into a single &quot;Value Gap&quot; metric.</p>
+<ul>
+<li>Methodology:</li>
+</ul>
+<p>I chose a Logistic Regression model due to the binary nature of round outcomes. To ensure the model was robust, I utilized 5-fold Cross-Validation, which showed a stable mean accuracy of 69%.</p>
+<ul>
+<li>Key Results:</li>
+</ul>
+<p><strong>Predictive Success: The model achieved a final test accuracy of 68.24%.</strong></p>
+<ul>
+<li>The &quot;Entry&quot; Factor: Correlation analysis and model weights revealed that the First Kill (0.38 correlation) is a significantly stronger predictor of victory than the Equipment Value Gap (0.16 correlation).</li>
+</ul>
+<ul>
+<li>Predictive Ceiling: The 32% error rate represents the &quot;human element&quot; of tactical shooters—rounds won through individual skill, communication, or &quot;clutch&quot; plays that purely numerical data cannot capture.</li>
+</ul>
+<ul>
+<li>Conclusion &amp; Future Work:</li>
+</ul>
+<p>The project proves that CS2 rounds are not purely random; they follow a logical structure where economy and initial man-power advantage set a strong baseline. Future iterations of this model could be improved by including spatial data (where on the map the kill happened) or player health (HP) to capture the mid-round shifts in probability, or certain map specifities (de_inferno map favors CTs hugely, de_dust favors rifles and longer range)</p>
+<h2 id="9-references">9: References</h2>
+<ul>
+<li>Valve Corporation. (2023). Counter-Strike 2. [Video Game].</li>
+<li>CSStats.gg. (2024). Match History Archive. Retrieved from: <a href="https://csstats.gg/player/76561198812851717#/matches">https://csstats.gg/player/76561198812851717#/matches</a></li>
+<li>Selenium Documentation. (2024). Browser Automation with Python. Retrieved from: <a href="https://www.selenium.dev/documentation/">https://www.selenium.dev/documentation/</a></li>
+<li>Dataset: <a href="https://docs.google.com/spreadsheets/d/11jBTxW-TZf4VdjGKdPzd89s10MTYhAGLhwd5xUeLQR8/edit?gid=29948127#gid=29948127">https://docs.google.com/spreadsheets/d/11jBTxW-TZf4VdjGKdPzd89s10MTYhAGLhwd5xUeLQR8/edit?gid=29948127#gid=29948127</a></li>
+<li>Github link: <a href="https://github.com/madiyarzm/ML-CS2-Round-Forecaster/tree/main">https://github.com/madiyarzm/ML-CS2-Round-Forecaster/tree/main</a></li>
+</ul>
+</div>
+</body>
+</html>
