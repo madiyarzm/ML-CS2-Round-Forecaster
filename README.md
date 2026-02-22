@@ -13,20 +13,20 @@ In competitive *Counter-Strike 2*, resources are everything. This project invest
 
 By decomposing matches into discrete rounds, I extracted telemetry from **424 rounds** of play to build a Logistic Regression model that balances "Value Gaps" (equipment cost) against "First Kills" (tactical momentum).
 
-## 🛠️ Technical Stack
+## Technical Stack
 * **Data Collection:** Python + Selenium (Automated scraping of player telemetry from `csstats.gg`).
 * **Data Processing:** Pandas & NumPy (Filtering, normalization, and feature engineering).
 * **Machine Learning:** Scikit-Learn (Logistic Regression with 5-Fold Cross-Validation).
 * **Visualization:** Matplotlib & Seaborn (Heatmaps, Boxplots, Confusion Matrices, and ROC Curves).
 
-## 📊 Key Findings
+## Key Findings
 * **Model Accuracy:** **68.24%** on unseen test data—a high predictive rate for a chaotic tactical environment.
 * **The "First Kill" Multiplier:** Securing the first kill ($0.38$ correlation) proved significantly more influential than having a raw equipment lead ($0.16$ correlation).
 * **Stable Logic:** A 5-fold cross-validation standard deviation of only **5.75%** confirms that the model's logic is consistent across different maps and match contexts.
 
 
 
-## 🚀 How it Works
+## How it Works
 1.  **Scraping:** The `scraper.py` script automates a browser to navigate match histories, expanding round details to extract economic and kill-feed data.
 2.  **Engineering:** Raw team cash and equipment values are merged into a single `value_gap` feature ($Value_{CT} - Value_{T}$).
 3.  **Modeling:** A Logistic Regression classifier uses the **Sigmoid function** to calculate win probability.
