@@ -29,7 +29,9 @@
 </head>
 
 <body class="stackedit">
-  <div class="stackedit__html"><h1 id="cs156-modeling-round-win-probability-in-competitive-cs2-via-economic-asymmetry">CS156. Modeling Round-Win probability in Competitive CS2 via Economic Asymmetry</h1>
+  <div class="stackedit__html"><p style="margin-bottom:1em; padding:0.6em 1em; background:#e7f1ff; border-left:4px solid #0d6efd; border-radius:4px; font-size:0.95em;">If you want a more enjoyable reading experience, this report is also deployed as HTML on GitHub Pages (same content): <a href="https://madiyarzm.github.io/ML-CS2-Round-Forecaster/cs156_report.html" target="_blank" rel="noopener">https://madiyarzm.github.io/ML-CS2-Round-Forecaster/cs156_report.html</a></p>
+<h1 id="cs156-modeling-round-win-probability-in-competitive-cs2-via-economic-asymmetry">CS156. Modeling Round-Win probability in Competitive CS2 via Economic Asymmetry</h1>
+<p style="margin-top:-0.5em; margin-bottom:1.5em; font-size:1.1em; color:#6c757d;"><strong>Author:</strong> Madiyar Zhunussov</p>
 <h2 id="contents">Contents</h2>
 <table>
 <thead>
@@ -367,7 +369,8 @@ df[&#x27;fk_side_binary&#x27;] = df[&#x27;first_kill_side&#x27;].map({&#x27;CT&#
 </div>
 <h4>3.4 Feature Engineering</h4>
 <p>While the raw equipment values for each team provide a snapshot of their inventory, the absolute values are less informative to a model than the relative difference between them that shows assymetry. To capture the &quot;power struggle&quot; of a round in a single metric, I performed Feature Engineering to create the <code>value_gap</code> variable.</p>
-<p>By calculating $$Value Gap = EquipmentValue_{CT} - Equipment Value_{T}$$</p>
+<p>By calculating</p>
+<div class="equation" style="margin:1em 0; padding:0.5em 1em; background:#f8f9fa; border-left:4px solid #0d6efd; font-family:serif; text-align:center;">Value Gap = EquipmentValue<sub>CT</sub> − EquipmentValue<sub>T</sub></div>
 <p>I synthesized a new feature that represents the <strong>Economic Asymmetry</strong> of the match. A high positive value indicates a significant CT equipment advantage (e.g., Rifles vs. Pistols), while a high negative value indicates a T advantage.</p>
 <p>This reduces the dimensionality of the input space, collapsing two variables into one, thereby clarifying the &quot;signal&quot; for the model and helping it identify the specific point where a financial advantage becomes a guaranteed win.</p>
 <div class="cell cell-code"><span class="cell-label">Code</span>
@@ -430,6 +433,12 @@ display(df.describe())</code></pre>
 <p>Where β<sub>0</sub> is the intercept (the baseline bias of the game) and β<sub>1</sub>, β<sub>2</sub> are the weights the model assigns to each feature. To turn this &quot;score&quot; into a probability between 0 and 1, we pass it through the <strong>Sigmoid function</strong>:</p>
 <div class="equation" style="margin:1em 0; padding:0.5em 1em; background:#f8f9fa; border-left:4px solid #0d6efd; font-family:serif; text-align:center;">σ(<var>z</var>) = 1/(1 + <em>e</em><sup>−<var>z</var></sup>)</div>
 <p>The resulting value <var>P</var>(<var>y</var>=1) tells us the likelihood of a CT win. If <var>P</var> &gt; 0.5, the model predicts a win; otherwise, it predicts a loss.</p>
+<p><strong>Prediction rule (classification):</strong></p>
+<div class="equation" style="margin:1em 0; padding:0.5em 1em; background:#f8f9fa; border-left:4px solid #0d6efd; font-family:serif;">ŷ = 1 (CT win) if σ(<var>z</var>) &gt; 0.5, equivalently <var>z</var> &gt; 0; otherwise ŷ = 0 (T win). The <strong>decision boundary</strong> is the hyperplane <var>z</var> = 0.</div>
+<p><strong>Training objective (Binary Cross-Entropy / Log-Loss):</strong> the model is fitted by minimizing the negative log-likelihood over the training set. For one sample with true label <var>y</var> ∈ {0,1} and predicted probability <var>p</var> = σ(<var>z</var>):</p>
+<div class="equation" style="margin:1em 0; padding:0.5em 1em; background:#f8f9fa; border-left:4px solid #0d6efd; font-family:serif; text-align:center;">ℓ(<var>y</var>, <var>p</var>) = −<var>y</var> log <var>p</var> − (1−<var>y</var>) log(1−<var>p</var>)</div>
+<p>Averaging over all <var>n</var> training rounds gives the loss <var>L</var>(β) = (1/<var>n</var>) Σ<sub>i</sub> ℓ(<var>y</var><sub>i</sub>, <var>p</var><sub>i</sub>). The weights β are updated via gradient descent (or variants such as L-BFGS in <code>sklearn</code>) to minimize <var>L</var>.</p>
+<p><strong>Vector form:</strong> with feature vector <strong>x</strong> = [1, <var>x</var><sub>1</sub>, <var>x</var><sub>2</sub>]<sup>T</sup> and weight vector <strong>β</strong> = [β<sub>0</sub>, β<sub>1</sub>, β<sub>2</sub>]<sup>T</sup>, the logit is <var>z</var> = <strong>β</strong><sup>T</sup><strong>x</strong>, and <var>P</var>(<var>y</var>=1 | <strong>x</strong>) = σ(<strong>β</strong><sup>T</sup><strong>x</strong>).</p>
 <div class="cell cell-code"><span class="cell-label">Code</span>
 <pre><code>&quot;&quot;&quot;
 Pseudocode
@@ -579,6 +588,39 @@ plt.show()</code></pre>
 <ul>
 <li>Data Pipeline:</li>
 </ul>
+<figure class="pipeline-diagram" style="margin:1.5em 0; padding:1em; background:#f8f9fa; border-radius:8px; overflow-x:auto;">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 140" style="max-width:100%; height:auto;" aria-label="ML pipeline diagram">
+    <defs>
+      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#495057"/></marker>
+    </defs>
+    <rect x="10" y="40" width="85" height="60" rx="6" fill="#e7f1ff" stroke="#0d6efd" stroke-width="2"/>
+    <text x="52" y="75" text-anchor="middle" font-size="11" fill="#0d6efd" font-weight="600">CSStats.gg</text>
+    <text x="52" y="88" text-anchor="middle" font-size="9" fill="#495057">Match archive</text>
+    <line x1="95" y1="70" x2="125" y2="70" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="125" y="40" width="85" height="60" rx="6" fill="#fff3cd" stroke="#856404" stroke-width="2"/>
+    <text x="167" y="72" text-anchor="middle" font-size="11" fill="#856404" font-weight="600">Selenium</text>
+    <text x="167" y="88" text-anchor="middle" font-size="9" fill="#495057">Scrape HTML</text>
+    <line x1="210" y1="70" x2="240" y2="70" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="240" y="40" width="75" height="60" rx="6" fill="#d4edda" stroke="#198754" stroke-width="2"/>
+    <text x="277" y="72" text-anchor="middle" font-size="11" fill="#198754" font-weight="600">CSV</text>
+    <text x="277" y="88" text-anchor="middle" font-size="9" fill="#495057">424 rounds</text>
+    <line x1="315" y1="70" x2="345" y2="70" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="345" y="40" width="95" height="60" rx="6" fill="#e2d5f1" stroke="#6f42c1" stroke-width="2"/>
+    <text x="392" y="72" text-anchor="middle" font-size="11" fill="#6f42c1" font-weight="600">Preprocess</text>
+    <text x="392" y="88" text-anchor="middle" font-size="9" fill="#495057">value_gap, target</text>
+    <line x1="440" y1="70" x2="470" y2="70" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="470" y="40" width="90" height="60" rx="6" fill="#f8d7da" stroke="#dc3545" stroke-width="2"/>
+    <text x="515" y="72" text-anchor="middle" font-size="11" fill="#dc3545" font-weight="600">Train/Test</text>
+    <text x="515" y="88" text-anchor="middle" font-size="9" fill="#495057">80% / 20%</text>
+    <line x1="560" y1="70" x2="590" y2="70" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="590" y="40" width="60" height="60" rx="6" fill="#cce5ff" stroke="#0d6efd" stroke-width="2"/>
+    <text x="620" y="78" text-anchor="middle" font-size="11" fill="#0d6efd" font-weight="600">LogReg</text>
+    <line x1="650" y1="70" x2="680" y2="70" stroke="#495057" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <rect x="680" y="40" width="30" height="60" rx="6" fill="#d1ecf1" stroke="#0c5460" stroke-width="2"/>
+    <text x="695" y="78" text-anchor="middle" font-size="10" fill="#0c5460" font-weight="600">ŷ</text>
+  </svg>
+  <figcaption style="margin-top:0.5em; font-size:0.9em; color:#6c757d; text-align:center;">Figure: End-to-end pipeline from match archive to round-win predictions.</figcaption>
+</figure>
 <p>I constructed a custom dataset by scraping 424 rounds from my personal competitive match history using Selenium. This process involved converting raw HTML telemetry into a structured CSV format, followed by Feature Engineering to transform raw team values into a single &quot;Value Gap&quot; metric.</p>
 <ul>
 <li>Methodology:</li>
